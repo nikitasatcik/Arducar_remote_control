@@ -1,40 +1,38 @@
-#include <Wire.h>
+/*
+    This is additional arduino slave board for using extra 6 PWM pins.
+    It receives Joystick positions  x, y from the Master board.
+     
+    Created Aug 12, 2022, by Kolchiba Mykyta.
+*/
 
-char char_buffer[16] = "";
+#include <Wire.h>
+#include <I2C_Anything.h> //https://github.com/nickgammon/I2C_Anything
+
+const byte MY_ADDRESS = 8;
+volatile boolean haveData = false;
+volatile int x;
+volatile int y;
 
 void setup() {
-  Wire.begin(8); // join i2c bus with address #8
+  Wire.begin(MY_ADDRESS); // join i2c bus with address #8
   Wire.onReceive(receiveEvent);
   Serial.begin(9600);
 }
 
 void receiveEvent(int howMany) {
-  byte index = 0;
-  while (Wire.available() and index < sizeof(char_buffer) - 1)
+  if (howMany >= (sizeof x) + (sizeof y))
   {
-    char_buffer[index++] = Wire.read();
-    char_buffer[index] = '\0';
-  }
-
-  char x_buff[5];
-  char y_buff[5];
-
-  memcpy( x_buff, &char_buffer[0], 4 );
-  x_buff[4] = '\0';
-  int x;
-  sscanf(x_buff, "%d", &x);
-  Serial.print("X = ");
-  Serial.println(x);
-
-  memcpy( y_buff, &char_buffer[4], 4 );
-  y_buff[4] = '\0';
-  int y;
-  sscanf(y_buff, "%d", &y);
-  Serial.print("Y = ");
-  Serial.println(y);
+    I2C_readAnything (x);
+    I2C_readAnything (y);
+    haveData = true;
+  }  // end if have enough data
 }
 
-
-
 void loop() {
+  if (haveData) {
+    Serial.print("X = ");
+    Serial.println(x);
+    Serial.print("Y = ");
+    Serial.println(y);
+  }
 }
