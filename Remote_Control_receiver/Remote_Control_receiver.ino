@@ -1,6 +1,6 @@
-#include <SPI.h>
+//#include <SPI.h>
 #include <DRV8833.h>
-//#include <Wire.h>
+#include <Servo.h>
 #include "RF24.h"
 
 /*
@@ -10,28 +10,26 @@
     Created July 29, 2022, by Kolchiba Mykyta.
 */
 
-DRV8833 driver = DRV8833();
+DRV8833 driver = DRV8833(); // Motor A is drive.
+Servo myservo; // Motor B is Servo
+const int inputA1 = 5, inputA2 = 6; // Ain1 and Ain2 DRV8833 pins.
 
-//Motor A is drive. Ain1 and Ain2 DRV8833 pins.
-const int inputA1 = 9, inputA2 = 10;  //default pin 9, 10
 
-//Motor B is Servo
-const int servo_left = 5, servo_right = 6; // default pin 5, 6
 
 int data[2];
 int motorSpeed = 0;
+int pos = 90;    // Servo position
 
-RF24 radio(3, 4); // default pin 3,8: CE(PWM) and CSN pin
+RF24 radio(7, 8); // CE and CSN pin
 
 const uint64_t pipe = 0xE8E8F0F0E1LL; //the address of the modem
 
 void setup() {
- // Wire.begin(8); // join i2c bus with address #8
   Serial.begin(9600);
 
   // Attach a motor to the input pins:
   driver.attachMotorA(inputA1, inputA2);
-  driver.attachMotorB(servo_left, servo_right);
+  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
 
   radio.begin();
   /* Settings*/
@@ -41,13 +39,6 @@ void setup() {
   radio.startListening();
 }
 
-//void transmit_i2c(int val) {
-//  Wire.beginTransmission(8); // transmit to device #8
-//  //Wire.write((const uint8_t *) data, 2);              // sends data
-//  Wire.write(val);           
-//  Wire.endTransmission();    // stop transmitting
-//}
-
 
 void loop() {
   if (radio.available()) {
@@ -56,42 +47,43 @@ void loop() {
     //data X
     if (data[0] > 525) {
       motorSpeed = map(data[0], 512, 1023, 0, 255);
-      //transmit_i2c(motorSpeed);
       driver.motorAForward(motorSpeed);
       Serial.println("FORWARD");
       Serial.println(data[0]);
+      Serial.print("speed:");
+      Serial.println(motorSpeed);
     }
 
     //data X
     if (data[0] < 500) {
       motorSpeed = map(data[0], 512, 0, 0, 255);
       driver.motorAReverse(motorSpeed);
-     // transmit_i2c(motorSpeed);
       Serial.println("BACKWARD");
       Serial.println(data[0]);
     }
 
     //data Y
     if (data[1] > 550 ) {
-      driver.motorBForward();
+      pos = map(data[1], 512, 1023, 90, 180);
+      myservo.write(pos);
       Serial.println("TURN RIGHT");
       Serial.println(data[1]);
     }
 
     //data Y
     if (data[1] < 480 ) {
-      // transmit_i2c(data[1]);
-      driver.motorBReverse();
+      pos = map(data[1], 512, 0, 90, 0);
+      myservo.write(pos);
       Serial.println("TURN LEFT");
       Serial.println(data[1]);
     }
 
     if (data[0] < 525 && data[0] > 500 && data[1] < 550 && data[1] > 480) {
       driver.motorAStop();
-      digitalWrite(servo_left, LOW);
-      digitalWrite(servo_right, LOW);
+      pos = map(data[1], 480, 550, 80, 100);
+      myservo.write(pos);
       Serial.println("STOP");
-      Serial.println(radio.getPALevel());
+      //Serial.println(radio.getPALevel());
     }
 
   }
